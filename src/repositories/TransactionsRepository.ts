@@ -24,9 +24,7 @@ class TransactionsRepository extends Repository<Transaction> {
         type: 'outcome',
       },
     });
-    console.log(outcomeArray);
     const outcome = outcomeArray.reduce((sum, { value }) => sum + value, 0);
-    console.log(outcome);
 
     return {
       income,
