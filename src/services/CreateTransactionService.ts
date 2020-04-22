@@ -1,8 +1,11 @@
 // import AppError from '../errors/AppError';
 
-import { getRepository } from 'typeorm';
-import Transaction from '../models/Transaction';
+import { getCustomRepository, getRepository } from 'typeorm';
+
+import AppError from '../errors/AppError';
 import Category from '../models/Category';
+import Transaction from '../models/Transaction';
+import TransactionsRepository from '../repositories/TransactionsRepository';
 
 interface Request {
   title: string;
@@ -19,27 +22,34 @@ class CreateTransactionService {
     category,
   }: Request): Promise<Transaction> {
     const categoryRepository = getRepository(Category);
-    const transactionRepository = getRepository(Transaction);
-    const checkCategoryExists = await categoryRepository.findOne({
+    const transactionsRepository = getCustomRepository(TransactionsRepository);
+    const { total } = await transactionsRepository.getBalance();
+    if (type === 'outcome' && value > total) {
+      throw new AppError(
+        'Outcome value cannot be higher than current savings',
+        400,
+      );
+    }
+    const findCategory = await categoryRepository.findOne({
       where: {
         title: category,
       },
     });
-    if (!checkCategoryExists) {
-      const categoryObj = categoryRepository.create({ title: category });
-      await categoryRepository.save(categoryObj);
-      const category_id = categoryObj.id;
-    } else {
-      const category_id = checkCategoryExists.id;
+
+    const newCategory = categoryRepository.create({ title: category });
+
+    if (!findCategory) {
+      await categoryRepository.save(newCategory);
     }
-    const transaction = transactionRepository.create({
+
+    const transaction = transactionsRepository.create({
       title,
       value,
       type,
-      category_id,
+      category_id: findCategory ? findCategory.id : newCategory.id,
     });
 
-    await transactionRepository.save(transaction);
+    await transactionsRepository.save(transaction);
 
     return transaction;
   }
